@@ -468,8 +468,8 @@ function freshRoom(){
   };
 }
 
-function serializeRoom(){
-  return JSON.stringify({
+function currentStateObj(){
+  return {
     board: localState.board,
     castling: localState.castling,
     enPassant: localState.enPassant,
@@ -478,40 +478,48 @@ function serializeRoom(){
     winner: roomMeta.winner,
     lastMove: roomMeta.lastMove,
     moveHistory: roomMeta.moveHistory,
-    players: roomMeta.players,
-    updatedAt: Date.now()
-  });
+    players: roomMeta.players
+  };
 }
 
 async function writeRoom(){
-  const json = serializeRoom();
-  const parsed = JSON.parse(json);
-  lastUpdatedAt = parsed.updatedAt;
-  try{ await window.storage.set('room:'+roomCode, json, true); }catch(e){ console.error('write failed', e); }
+  const state = currentStateObj();
+  try{
+    const res = await fetch('/api/room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: roomCode, state })
+    });
+    if(!res.ok){ console.error('write failed', res.status); return; }
+    const data = await res.json();
+    lastUpdatedAt = data.updatedAt;
+  }catch(e){ console.error('write failed', e); }
 }
 
-function applyIncomingRoom(room){
+function applyIncomingRoom(room, updatedAt){
   localState = { board: room.board, castling: room.castling, enPassant: room.enPassant, turn: room.turn };
   roomMeta = { status: room.status, winner: room.winner, lastMove: room.lastMove, moveHistory: room.moveHistory||[], players: room.players };
-  lastUpdatedAt = room.updatedAt;
+  lastUpdatedAt = updatedAt;
   selected = null; legalTargets = [];
   render();
 }
 
 function startPolling(){
-  if(pollTimer) clearInterval(pollTimer);
+  stopSync();
   pollTimer = setInterval(async ()=>{
     try{
-      const res = await window.storage.get('room:'+roomCode, true);
-      if(res && res.value){
-        const room = JSON.parse(res.value);
-        if(room.updatedAt !== lastUpdatedAt){
-          applyIncomingRoom(room);
-          onRoomUpdated(room);
-        }
+      const res = await fetch('/api/room?code=' + encodeURIComponent(roomCode));
+      if(!res.ok) return;
+      const data = await res.json();
+      if(data.updatedAt !== lastUpdatedAt){
+        applyIncomingRoom(data.state, data.updatedAt);
+        onRoomUpdated(data.state);
       }
-    }catch(e){ /* room not found yet */ }
-  }, 1100);
+    }catch(e){ /* transient network error, try again next tick */ }
+  }, 1200);
+}
+function stopSync(){
+  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
 }
 
 function onRoomUpdated(room){
@@ -556,22 +564,30 @@ document.getElementById('joinBtn').addEventListener('click', async ()=>{
   const code = document.getElementById('joinInput').value.trim().toUpperCase();
   if(code.length<4){ homeError.textContent='Enter the 4-character code.'; return; }
   try{
-    const res = await window.storage.get('room:'+code, true);
-    if(!res || !res.value){ homeError.textContent='Room not found.'; return; }
-    const room = JSON.parse(res.value);
+    const getRes = await fetch('/api/room?code=' + encodeURIComponent(code));
+    if(getRes.status===404){ homeError.textContent='Room not found.'; return; }
+    if(!getRes.ok){ homeError.textContent='Room not found.'; return; }
+    const data = await getRes.json();
+    const room = data.state;
     if(room.players.black){ homeError.textContent='That room is already full.'; return; }
     roomCode = code; myRole='b';
-    room.players.black = true; room.updatedAt = Date.now();
+    room.players.black = true;
     localState = { board:room.board, castling:room.castling, enPassant:room.enPassant, turn:room.turn };
     roomMeta = { status:room.status, winner:room.winner, lastMove:room.lastMove, moveHistory:room.moveHistory, players:room.players };
-    await window.storage.set('room:'+code, JSON.stringify(room), true);
-    lastUpdatedAt = room.updatedAt;
+    const postRes = await fetch('/api/room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, state: room })
+    });
+    if(!postRes.ok){ homeError.textContent='Could not join room. Try again.'; return; }
+    const postData = await postRes.json();
+    lastUpdatedAt = postData.updatedAt;
     startPolling();
     goTo('placeScreen');
   }catch(e){ homeError.textContent='Room not found.'; }
 });
 document.getElementById('lobbyCancel').addEventListener('click', ()=>{
-  if(pollTimer) clearInterval(pollTimer);
+  stopSync();
   goTo('homeScreen');
 });
 function genCode(){
