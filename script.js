@@ -188,10 +188,11 @@ async function writeRoom(){
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: roomCode, state })
     });
-    if(!res.ok){ console.error('write failed', res.status); return; }
+    if(!res.ok){ console.error('write failed', res.status); return false; }
     const data = await res.json();
     lastUpdatedAt = data.updatedAt;
-  }catch(e){ console.error('write failed', e); }
+    return true;
+  }catch(e){ console.error('write failed', e); return false; }
 }
 
 function applyIncomingRoom(room, updatedAt){
@@ -246,12 +247,20 @@ document.getElementById('showJoinBtn').addEventListener('click', ()=>{
 });
 document.getElementById('hostBtn').addEventListener('click', async ()=>{
   homeError.textContent='';
+  const btn = document.getElementById('hostBtn');
+  btn.disabled = true;
   roomCode = genCode();
   myRole = 'w';
   const room = freshRoom();
   localState = { board:room.board, castling:room.castling, enPassant:room.enPassant, turn:room.turn };
   roomMeta = { status:room.status, winner:room.winner, lastMove:room.lastMove, moveHistory:room.moveHistory, players:room.players };
-  await writeRoom();
+  const ok = await writeRoom();
+  if(!ok){
+    homeError.textContent='Could not create room. Check your connection and try again.';
+    btn.disabled = false;
+    roomCode = null; myRole = null; localState = null;
+    return;
+  }
   document.getElementById('lobbyCode').textContent = roomCode;
   document.getElementById('lobbyStatus').textContent = 'Waiting for opponent to join…';
   goTo('lobbyScreen');
