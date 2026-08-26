@@ -141,6 +141,89 @@ function legalMoves(state,color){
 const SYMS = { wK:'♔',wQ:'♕',wR:'♖',wB:'♗',wN:'♘',wP:'♙', bK:'♚',bQ:'♛',bR:'♜',bB:'♝',bN:'♞',bP:'♟' };
 const PROMO_PIECES = [['Q','♕'],['R','♖'],['B','♗'],['N','♘']];
 
+/* ---- 3-D SVG CHESS PIECES ---- */
+const PIECE_SVG = {};
+(function buildPieceSVGs(){
+  const S = 45;
+  function wrap(inner, light){
+    const bodyFill = light?'url(#gLight)':'url(#gDark)';
+    const bodyStroke = light?'#3a2c14':'#111';
+    const hiFill = light?'rgba(255,250,235,0.55)':'rgba(255,255,255,0.12)';
+    const baseFill = light?'#d4c5a0':'#2a1f14';
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${S} ${S}" width="100%" height="100%">
+      <defs>
+        <linearGradient id="gLight" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#faf3dc"/>
+          <stop offset="50%" stop-color="#e8d9b0"/>
+          <stop offset="100%" stop-color="#c4a97a"/>
+        </linearGradient>
+        <linearGradient id="gDark" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#5a4530"/>
+          <stop offset="50%" stop-color="#3a2818"/>
+          <stop offset="100%" stop-color="#1a0e06"/>
+        </linearGradient>
+        <linearGradient id="gBase" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${light?'#c4a97a':'#3a2818'}"/>
+          <stop offset="100%" stop-color="${light?'#8a7048':'#0e0804'}"/>
+        </linearGradient>
+        <filter id="ds"><feDropShadow dx="0.6" dy="1.2" stdDeviation="1" flood-opacity="0.45"/></filter>
+      </defs>
+      <g filter="url(#ds)" stroke="${bodyStroke}" stroke-width="1.1" stroke-linejoin="round">
+        ${inner.replace(/\{fill\}/g, bodyFill).replace(/\{hi\}/g, hiFill)}
+      </g>
+    </svg>`;
+  }
+
+  const king = `<path d="M14,38 Q14,35 22.5,35 Q31,35 31,38 L31,40 Q31,41 30,41 L15,41 Q14,41 14,40 Z" fill="url(#gBase)"/>
+    <path d="M18,35 L18,20 Q18,14 22.5,11 Q27,14 27,20 L27,35 Z" fill="{fill}"/>
+    <rect x="20" y="5" width="5" height="10" rx="1" fill="{fill}"/>
+    <rect x="18" y="8" width="9" height="4" rx="1" fill="{fill}"/>
+    <path d="M19,35 Q19,33 22.5,31 Q26,33 26,35" fill="none" stroke="${'{hi}'}" stroke-width="0.8"/>
+    <ellipse cx="22.5" cy="18" rx="3" ry="4" fill="{hi}" opacity="0.3"/>`;
+
+  const queen = `<path d="M13,38 Q13,35 22.5,35 Q32,35 32,38 L32,40 Q32,41 31,41 L14,41 Q13,41 13,40 Z" fill="url(#gBase)"/>
+    <path d="M16,35 L16,22 Q16,16 22.5,12 Q29,16 29,22 L29,35 Z" fill="{fill}"/>
+    <circle cx="22.5" cy="10" r="2.8" fill="{fill}"/>
+    <circle cx="22.5" cy="10" r="1.5" fill="{hi}" opacity="0.4"/>
+    <path d="M15,18 L18,22 L16,14 Z" fill="{fill}"/>
+    <path d="M22.5,14 L22.5,22 L21,13 Z" fill="{fill}"/>
+    <path d="M30,18 L27,22 L29,14 Z" fill="{fill}"/>
+    <ellipse cx="22.5" cy="20" rx="3.5" ry="5" fill="{hi}" opacity="0.25"/>`;
+
+  const rook = `<path d="M13,38 Q13,35 22.5,35 Q32,35 32,38 L32,40 Q32,41 31,41 L14,41 Q13,41 13,40 Z" fill="url(#gBase)"/>
+    <rect x="17" y="18" width="11" height="17" rx="1" fill="{fill}"/>
+    <rect x="14" y="10" width="17" height="9" rx="1.5" fill="{fill}"/>
+    <rect x="14" y="6" width="3.5" height="5" fill="{fill}"/>
+    <rect x="20.75" y="6" width="3.5" height="5" fill="{fill}"/>
+    <rect x="27.5" y="6" width="3.5" height="5" fill="{fill}"/>
+    <rect x="18" y="20" width="9" height="2" rx="0.5" fill="{hi}" opacity="0.3"/>`;
+
+  const bishop = `<path d="M14,38 Q14,35 22.5,35 Q31,35 31,38 L31,40 Q31,41 30,41 L15,41 Q14,41 14,40 Z" fill="url(#gBase)"/>
+    <path d="M17,35 L17,22 Q17,14 22.5,10 Q28,14 28,22 L28,35 Z" fill="{fill}"/>
+    <circle cx="22.5" cy="8.5" r="2.2" fill="{fill}"/>
+    <circle cx="22.5" cy="8.5" r="1" fill="{hi}" opacity="0.5"/>
+    <path d="M20,18 Q22.5,20 25,18" fill="none" stroke="url(#gBase)" stroke-width="1.2"/>
+    <ellipse cx="22.5" cy="19" rx="2.5" ry="5" fill="{hi}" opacity="0.2"/>`;
+
+  const knight = `<path d="M14,38 Q14,35 22.5,35 Q31,35 31,38 L31,40 Q31,41 30,41 L15,41 Q14,41 14,40 Z" fill="url(#gBase)"/>
+    <path d="M18,35 L17,24 Q17,18 20,14 L19,11 Q18,9 20,8 Q22,7 25,9 L30,16 Q31,18 30,22 L28,35 Z" fill="{fill}"/>
+    <ellipse cx="21" cy="12" rx="1.5" ry="1.2" fill="${'{hi}'}" opacity="0.5"/>
+    <circle cx="22" cy="14" r="1.3" fill="#111"/>
+    <path d="M19,16 Q22,18 25,17" fill="none" stroke="#111" stroke-width="0.8"/>
+    <ellipse cx="22" cy="22" rx="3" ry="6" fill="{hi}" opacity="0.15"/>`;
+
+  const pawn = `<path d="M16,38 Q16,35 22.5,35 Q29,35 29,38 L29,40 Q29,41 28,41 L17,41 Q16,41 16,40 Z" fill="url(#gBase)"/>
+    <path d="M19,35 L19,24 Q19,18 22.5,14 Q26,18 26,24 L26,35 Z" fill="{fill}"/>
+    <circle cx="22.5" cy="12" r="3.8" fill="{fill}"/>
+    <circle cx="22.5" cy="12" r="2.2" fill="{hi}" opacity="0.3"/>`;
+
+  const pieces = {K:king, Q:queen, R:rook, B:bishop, N:knight, P:pawn};
+  for(const [type, svg] of Object.entries(pieces)){
+    PIECE_SVG['w'+type] = wrap(svg, true);
+    PIECE_SVG['b'+type] = wrap(svg, false);
+  }
+})();
+
 let roomCode = null;
 let myRole = null; // 'w' or 'b'
 let pollTimer = null;
@@ -256,7 +339,7 @@ document.getElementById('hostBtn').addEventListener('click', async ()=>{
   roomMeta = { status:room.status, winner:room.winner, lastMove:room.lastMove, moveHistory:room.moveHistory, players:room.players };
   const ok = await writeRoom();
   if(!ok){
-    homeError.textContent='Could not create room. Check your connection and try again.';
+    homeError.textContent='Could not create room. Make sure the app is deployed to Vercel with Redis env vars set.';
     btn.disabled = false;
     roomCode = null; myRole = null; localState = null;
     return;
@@ -269,11 +352,11 @@ document.getElementById('hostBtn').addEventListener('click', async ()=>{
 document.getElementById('joinBtn').addEventListener('click', async ()=>{
   homeError.textContent='';
   const code = document.getElementById('joinInput').value.trim().toUpperCase();
-  if(code.length<4){ homeError.textContent='Enter the 4-character code.'; return; }
+  if(code.length!==4){ homeError.textContent='Enter the 4-character code.'; return; }
   try{
     const getRes = await fetch('/api/room?code=' + encodeURIComponent(code));
-    if(getRes.status===404){ homeError.textContent='Room not found.'; return; }
-    if(!getRes.ok){ homeError.textContent='Room not found.'; return; }
+    if(getRes.status===404){ homeError.textContent='Room not found. Make sure the host created the room on the same app URL.'; return; }
+    if(!getRes.ok){ homeError.textContent='Server error ('+getRes.status+'). Try again.'; return; }
     const data = await getRes.json();
     const room = data.state;
     if(room.players.black){ homeError.textContent='That room is already full.'; return; }
@@ -291,10 +374,12 @@ document.getElementById('joinBtn').addEventListener('click', async ()=>{
     lastUpdatedAt = postData.updatedAt;
     startPolling();
     goTo('placeScreen');
-  }catch(e){ homeError.textContent='Room not found.'; }
+  }catch(e){ homeError.textContent='Could not reach the server. Check your connection.'; }
 });
 document.getElementById('lobbyCancel').addEventListener('click', ()=>{
   stopSync();
+  roomCode = null; myRole = null; localState = null; roomMeta = { status:'waiting', winner:null, lastMove:null, moveHistory:[] };
+  document.getElementById('hostBtn').disabled = false;
   goTo('homeScreen');
 });
 function genCode(){
@@ -306,18 +391,28 @@ function genCode(){
 /* ============================ AR PLACEMENT ============================ */
 let camOn = false;
 document.getElementById('enableCamBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('enableCamBtn');
+  btn.textContent = 'Starting camera...';
+  btn.disabled = true;
   try{
-    const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment' }, audio:false });
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      throw new Error('Camera API not supported in this browser');
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'environment', width:{ideal:1280}, height:{ideal:720} }, audio:false });
     const video = document.getElementById('cam');
     video.srcObject = stream;
     await video.play();
     video.classList.add('on');
     camOn = true;
-    document.getElementById('enableCamBtn').textContent = 'Camera on';
-    document.getElementById('enableCamBtn').disabled = true;
+    btn.textContent = 'Camera on';
   }catch(e){
-    document.getElementById('enableCamBtn').textContent = 'Camera unavailable';
-    document.getElementById('enableCamBtn').disabled = true;
+    console.warn('Camera error:', e.name, e.message);
+    let msg = 'Camera unavailable';
+    if(e.name==='NotAllowedError') msg = 'Camera permission denied — allow in browser settings';
+    else if(e.name==='NotFoundError') msg = 'No camera found on this device';
+    else if(e.name==='NotReadableError') msg = 'Camera is in use by another app';
+    else if(e.message) msg = msg + ' ('+e.message+')';
+    btn.textContent = msg;
   }
 });
 
@@ -426,7 +521,7 @@ function render(){
       cell.className = 'sq ' + (isLight?'light':'dark');
       cell.dataset.r = r; cell.dataset.c = c;
       const p = localState.board[r][c];
-      cell.innerHTML = p ? `<span class="piece ${pieceColor(p)}">${SYMS[p]}</span>` : '';
+      cell.innerHTML = p ? `<span class="piece ${pieceColor(p)}">${PIECE_SVG[p]||''}</span>` : '';
       if(roomMeta.lastMove){
         const {from,to} = roomMeta.lastMove;
         if((from.r===r&&from.c===c)||(to.r===r&&to.c===c)) cell.classList.add('lastmove');
@@ -457,7 +552,7 @@ function renderStatic(cells){
     const cell = cells[i]; const {r,c}=pos;
     cell.className = 'sq ' + ((r+c)%2===0?'light':'dark');
     const p = b[r][c];
-    cell.innerHTML = p? `<span class="piece ${pieceColor(p)}">${SYMS[p]}</span>` : '';
+    cell.innerHTML = p? `<span class="piece ${pieceColor(p)}">${PIECE_SVG[p]||''}</span>` : '';
   });
 }
 
@@ -497,9 +592,10 @@ function openPromoModal(){
   const row = document.getElementById('promoRow');
   row.innerHTML='';
   const color = myRole;
-  PROMO_PIECES.forEach(([code,sym])=>{
+  PROMO_PIECES.forEach(([code])=>{
     const b = document.createElement('button');
-    b.className='promo-btn'; b.textContent = color==='w'? sym : SYMS[color+code];
+    b.className='promo-btn';
+    b.innerHTML = PIECE_SVG[color+code] || '';
     b.addEventListener('click', async ()=>{
       document.getElementById('promoModal').classList.remove('active');
       const move = pendingPromo; pendingPromo=null;
@@ -578,8 +674,9 @@ document.getElementById('rematchBtn').addEventListener('click', async ()=>{
 });
 document.getElementById('homeBtn').addEventListener('click', ()=>{
   document.getElementById('overModal').classList.remove('active');
-  if(pollTimer) clearInterval(pollTimer);
-  roomCode=null; myRole=null; localState=null;
+  stopSync();
+  roomCode=null; myRole=null; localState=null; roomMeta = { status:'waiting', winner:null, lastMove:null, moveHistory:[] };
+  document.getElementById('hostBtn').disabled = false;
   goTo('homeScreen');
 });
 

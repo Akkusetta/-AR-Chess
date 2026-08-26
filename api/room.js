@@ -1,5 +1,11 @@
 const { Redis } = require('@upstash/redis');
-const redis = Redis.fromEnv();
+
+let redis;
+try {
+  redis = Redis.fromEnv();
+} catch (e) {
+  console.error('Redis init failed – check UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN env vars:', e.message);
+}
 
 const CODE_RE = /^[A-Z0-9]{4}$/;
 const TTL_SECONDS = 60 * 60 * 6;
@@ -12,14 +18,20 @@ module.exports = async (req, res) => {
     return res.status(200).end();
   }
 
+  if (!redis) {
+    console.error('Redis client not initialised');
+    return res.status(500).json({ error: 'server not configured – missing Redis env vars' });
+  }
+
   try {
     if (req.method === 'GET') {
-      const code = String(req.query.code || '').toUpperCase();
+      const code = String((req.query && req.query.code) || '').toUpperCase();
       if (!CODE_RE.test(code)) {
         return res.status(400).json({ error: 'invalid code' });
       }
       const room = await redis.get(`room:${code}`);
       if (!room) {
+        console.log('GET room not found:', code);
         return res.status(404).json({ error: 'not found' });
       }
       return res.status(200).json(room);
@@ -43,6 +55,7 @@ module.exports = async (req, res) => {
       }
       const room = { state, updatedAt: Date.now() };
       await redis.set(`room:${code}`, room, { ex: TTL_SECONDS });
+      console.log('POST room saved:', code);
       return res.status(200).json(room);
     }
 
